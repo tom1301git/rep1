@@ -37,20 +37,34 @@ class BodyFatViewModel(application: Application) : AndroidViewModel(application)
 
     suspend fun saveMeasurement(date: LocalDate, chest: Int, abdomen: Int, thigh: Int): Double? {
         val profile = profileDao.getOnce() ?: return null
+        val bodyFat = calculateBodyFat(date, chest, abdomen, thigh, profile)
+        measurementDao.insert(
+            Measurement(dateEpochDay = date.toEpochDay(), chest = chest, abdomen = abdomen, thigh = thigh, bodyFatPercent = bodyFat)
+        )
+        return bodyFat
+    }
+
+    fun saveMeasurementDirect(date: LocalDate, bodyFatPercent: Double) {
+        viewModelScope.launch {
+            measurementDao.insert(
+                Measurement(dateEpochDay = date.toEpochDay(), chest = null, abdomen = null, thigh = null, bodyFatPercent = bodyFatPercent)
+            )
+        }
+    }
+
+    fun updateMeasurement(measurement: Measurement) {
+        viewModelScope.launch { measurementDao.update(measurement) }
+    }
+
+    fun deleteMeasurement(measurement: Measurement) {
+        viewModelScope.launch { measurementDao.delete(measurement) }
+    }
+
+    fun calculateBodyFat(date: LocalDate, chest: Int, abdomen: Int, thigh: Int, profile: UserProfile): Double {
         val birthDate = LocalDate.ofEpochDay(profile.birthDateEpochDay)
         val ageYears = Period.between(birthDate, date).years
         val s = (chest + abdomen + thigh).toDouble()
         val bodyDensity = 1.10938 - (0.0008267 * s) + (0.0000016 * s.pow(2)) - (0.0002574 * ageYears)
-        val bodyFat = (495.0 / bodyDensity) - 450.0
-        measurementDao.insert(
-            Measurement(
-                dateEpochDay = date.toEpochDay(),
-                chest = chest,
-                abdomen = abdomen,
-                thigh = thigh,
-                bodyFatPercent = bodyFat
-            )
-        )
-        return bodyFat
+        return (495.0 / bodyDensity) - 450.0
     }
 }

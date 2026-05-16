@@ -63,6 +63,11 @@ fun ChartScreen(
                 val maxFat = fatValues.max()
                 val fatRange = (maxFat - minFat).coerceAtLeast(1.0)
 
+                // Time range for proportional x-axis
+                val xMinDay = allMeasurements.first().dateEpochDay
+                val xMaxDay = allMeasurements.last().dateEpochDay
+                val dayRange = (xMaxDay - xMinDay).coerceAtLeast(1L)
+
                 Canvas(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -71,14 +76,14 @@ fun ChartScreen(
                 ) {
                     val w = size.width
                     val h = size.height
-                    val n = allMeasurements.size
                     val padV = fatRange * 0.1
                     val yMin = minFat - padV
                     val yMax = maxFat + padV
                     val yRange = yMax - yMin
 
-                    fun xOf(i: Int) = if (n == 1) w / 2f else i.toFloat() / (n - 1) * w
-                    fun yOf(v: Double) = (h * (1.0 - (v - yMin) / yRange)).toFloat()
+                    // x proportional to actual date, 1 pixel = dayRange / w days
+                    fun xOf(epochDay: Long): Float = (epochDay - xMinDay).toFloat() / dayRange * w
+                    fun yOf(v: Double): Float = (h * (1.0 - (v - yMin) / yRange)).toFloat()
 
                     val gridPaint = android.graphics.Paint().apply {
                         color = gridColor.toArgb()
@@ -90,6 +95,7 @@ fun ChartScreen(
                         isAntiAlias = true
                     }
 
+                    // Horizontal grid lines with y-axis labels
                     repeat(5) { i ->
                         val v = yMin + yRange * i / 4.0
                         val y = yOf(v)
@@ -99,30 +105,32 @@ fun ChartScreen(
                         )
                     }
 
+                    // Line connecting measurement points
                     val path = Path()
                     allMeasurements.forEachIndexed { i, m ->
-                        val x = xOf(i)
+                        val x = xOf(m.dateEpochDay)
                         val y = yOf(m.bodyFatPercent)
                         if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
                     }
                     drawPath(path, color = primaryColor, style = Stroke(width = 4f))
 
-                    val maxLabels = 5
-                    val step = ((n - 1).toFloat() / (maxLabels - 1).coerceAtLeast(1)).coerceAtLeast(1f)
-                    allMeasurements.forEachIndexed { i, m ->
-                        val x = xOf(i)
+                    // Measurement dots
+                    allMeasurements.forEach { m ->
+                        val x = xOf(m.dateEpochDay)
                         val y = yOf(m.bodyFatPercent)
                         drawCircle(color = primaryColor, radius = 8f, center = Offset(x, y))
                         drawCircle(color = Color.White, radius = 4f, center = Offset(x, y))
+                    }
 
-                        val showLabel = n <= maxLabels || i == 0 || i == n - 1 ||
-                            (i % step.toInt() == 0)
-                        if (showLabel) {
-                            val date = LocalDate.ofEpochDay(m.dateEpochDay)
-                            drawContext.canvas.nativeCanvas.drawText(
-                                date.format(labelFormatter), x - 28f, h + 32f, textPaint
-                            )
-                        }
+                    // X-axis date labels: up to 5 evenly spaced across the time range
+                    val labelCount = minOf(5, allMeasurements.size)
+                    repeat(labelCount) { i ->
+                        val epochDay = xMinDay + (dayRange * i / (labelCount - 1).coerceAtLeast(1))
+                        val x = xOf(epochDay)
+                        val date = LocalDate.ofEpochDay(epochDay)
+                        drawContext.canvas.nativeCanvas.drawText(
+                            date.format(labelFormatter), x - 28f, h + 32f, textPaint
+                        )
                     }
                 }
             }

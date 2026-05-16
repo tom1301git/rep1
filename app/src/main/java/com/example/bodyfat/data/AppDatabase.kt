@@ -5,7 +5,7 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 
-@Database(entities = [Measurement::class, UserProfile::class], version = 1, exportSchema = false)
+@Database(entities = [Measurement::class, UserProfile::class], version = 2, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun measurementDao(): MeasurementDao
     abstract fun userProfileDao(): UserProfileDao
@@ -16,6 +16,7 @@ abstract class AppDatabase : RoomDatabase() {
         fun getDatabase(context: Context): AppDatabase =
             INSTANCE ?: synchronized(this) {
                 Room.databaseBuilder(context.applicationContext, AppDatabase::class.java, "bodyfat_db")
+                    .fallbackToDestructiveMigration()
                     .build().also { INSTANCE = it }
             }
     }

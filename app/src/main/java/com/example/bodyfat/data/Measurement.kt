@@ -7,8 +7,8 @@ import androidx.room.PrimaryKey
 data class Measurement(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
     val dateEpochDay: Long,
-    val chest: Int,
-    val abdomen: Int,
-    val thigh: Int,
+    val chest: Int?,
+    val abdomen: Int?,
+    val thigh: Int?,
     val bodyFatPercent: Double
 )
