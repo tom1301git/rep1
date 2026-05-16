@@ -70,10 +70,10 @@ fun HomeScreen(
     val sortedMonths: List<YearMonth> = remember(grouped) {
         grouped.keys.sortedDescending()
     }
-    val expandedMonths = remember { mutableStateSetOf<YearMonth>() }
+    var expandedMonths by remember { mutableStateOf(emptySet<YearMonth>()) }
     LaunchedEffect(sortedMonths) {
         if (expandedMonths.isEmpty() && sortedMonths.isNotEmpty()) {
-            expandedMonths.add(sortedMonths.first())
+            expandedMonths = setOf(sortedMonths.first())
         }
     }
 
@@ -276,8 +276,8 @@ fun HomeScreen(
                         count = entries.size,
                         expanded = expanded,
                         onToggle = {
-                            if (expanded) expandedMonths.remove(yearMonth)
-                            else expandedMonths.add(yearMonth)
+                            if (expanded) expandedMonths = expandedMonths - yearMonth
+                            else expandedMonths = expandedMonths + yearMonth
                         }
                     )
                 }
