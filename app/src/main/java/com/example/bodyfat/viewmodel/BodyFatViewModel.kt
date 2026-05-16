@@ -110,21 +110,21 @@ class BodyFatViewModel(application: Application) : AndroidViewModel(application)
 
     suspend fun importFromCsv(context: Context, uri: Uri): ImportResult = withContext(Dispatchers.IO) {
         try {
-            val content = context.contentResolver.openInputStream(uri)
-                ?.bufferedReader()?.readText() ?: return@withContext ImportResult(0, 0)
+            val rawContent = context.contentResolver.openInputStream(uri)
+                ?.bufferedReader()?.readText()
 
-            val existingDates = measurementDao.getAllOnce().map { it.dateEpochDay }.toSet()
-            var imported = 0
-            var skipped = 0
+            if (rawContent == null) {
+                ImportResult(0, 0)
+            } else {
+                val existingDates = measurementDao.getAllOnce().map { it.dateEpochDay }.toSet()
+                var imported = 0
+                var skipped = 0
 
-            content.lines()
-                .drop(1)                          // skip header
-                .filter { it.isNotBlank() }
-                .forEach { line ->
+                for (line in rawContent.lines().drop(1).filter { it.isNotBlank() }) {
                     val parts = line.split(",")
-                    if (parts.size < 5) return@forEach
-                    val date = runCatching { LocalDate.parse(parts[0].trim()) }.getOrNull() ?: return@forEach
-                    val bodyFat = parts[4].trim().toDoubleOrNull() ?: return@forEach
+                    if (parts.size < 5) continue
+                    val date = runCatching { LocalDate.parse(parts[0].trim()) }.getOrNull() ?: continue
+                    val bodyFat = parts[4].trim().toDoubleOrNull() ?: continue
 
                     if (existingDates.contains(date.toEpochDay())) {
                         skipped++
@@ -141,7 +141,8 @@ class BodyFatViewModel(application: Application) : AndroidViewModel(application)
                         imported++
                     }
                 }
-            ImportResult(imported, skipped)
+                ImportResult(imported, skipped)
+            }
         } catch (e: Exception) {
             ImportResult(0, 0)
         }
