@@ -13,7 +13,6 @@ import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.snapshots.SnapshotStateSet
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
@@ -71,7 +70,7 @@ fun HomeScreen(
     val sortedMonths: List<YearMonth> = remember(grouped) {
         grouped.keys.sortedDescending()
     }
-    val expandedMonths: SnapshotStateSet<YearMonth> = remember { mutableStateSetOf() }
+    val expandedMonths = remember { mutableStateSetOf<YearMonth>() }
     LaunchedEffect(sortedMonths) {
         if (expandedMonths.isEmpty() && sortedMonths.isNotEmpty()) {
             expandedMonths.add(sortedMonths.first())
