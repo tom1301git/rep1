@@ -23,4 +23,7 @@ interface MeasurementDao {
 
     @Query("SELECT * FROM measurements ORDER BY dateEpochDay ASC")
     fun getAll(): Flow<List<Measurement>>
+
+    @Query("SELECT * FROM measurements ORDER BY dateEpochDay ASC")
+    suspend fun getAllOnce(): List<Measurement>
 }

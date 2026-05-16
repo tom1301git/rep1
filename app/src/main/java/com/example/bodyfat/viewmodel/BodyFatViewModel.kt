@@ -18,9 +18,6 @@ class BodyFatViewModel(application: Application) : AndroidViewModel(application)
     private val measurementDao = db.measurementDao()
     private val profileDao = db.userProfileDao()
 
-    val lastFive = measurementDao.getLastFive()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
-
     val allMeasurements = measurementDao.getAll()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
@@ -32,6 +29,19 @@ class BodyFatViewModel(application: Application) : AndroidViewModel(application)
     fun saveProfile(birthDate: LocalDate) {
         viewModelScope.launch {
             profileDao.save(UserProfile(birthDateEpochDay = birthDate.toEpochDay()))
+        }
+    }
+
+    /** Changes birthdate, deletes all direct entries, recalculates all skinfold entries. */
+    suspend fun updateProfileAndRecalculate(newBirthDate: LocalDate) {
+        val newProfile = UserProfile(birthDateEpochDay = newBirthDate.toEpochDay())
+        profileDao.save(newProfile)
+        val all = measurementDao.getAllOnce()
+        all.filter { it.chest == null }.forEach { measurementDao.delete(it) }
+        all.filter { it.chest != null }.forEach { m ->
+            val date = LocalDate.ofEpochDay(m.dateEpochDay)
+            val fat = calculateBodyFat(date, m.chest!!, m.abdomen!!, m.thigh!!, newProfile)
+            measurementDao.update(m.copy(bodyFatPercent = fat))
         }
     }
 
