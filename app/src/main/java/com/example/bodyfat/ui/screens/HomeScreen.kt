@@ -222,6 +222,10 @@ fun HomeScreen(
                                         errorMsg = "Bitte alle Werte als positive ganze Zahlen eingeben."
                                         return@Button
                                     }
+                                    if (markedDates.contains(selectedDate.toEpochDay())) {
+                                        errorMsg = "Für diesen Tag existiert bereits ein Eintrag."
+                                        return@Button
+                                    }
                                     scope.launch {
                                         val result = viewModel.saveMeasurement(selectedDate, c, a, t)
                                         if (result != null) {
@@ -233,6 +237,10 @@ fun HomeScreen(
                                     val fat = bodyFatInput.replace(",", ".").toDoubleOrNull()
                                     if (fat == null || fat <= 0.0 || fat >= 100.0) {
                                         errorMsg = "Bitte einen gültigen Wert zwischen 0 und 100 eingeben."
+                                        return@Button
+                                    }
+                                    if (markedDates.contains(selectedDate.toEpochDay())) {
+                                        errorMsg = "Für diesen Tag existiert bereits ein Eintrag."
                                         return@Button
                                     }
                                     viewModel.saveMeasurementDirect(selectedDate, fat)
@@ -431,6 +439,11 @@ private fun EditMeasurementDialog(
         confirmButton = {
             TextButton(onClick = {
                 errorMsg = null
+                val isDateChanged = selectedDate.toEpochDay() != measurement.dateEpochDay
+                if (isDateChanged && markedDates.contains(selectedDate.toEpochDay())) {
+                    errorMsg = "Für diesen Tag existiert bereits ein Eintrag."
+                    return@TextButton
+                }
                 if (editMode == EntryMode.SKINFOLD) {
                     val c = chest.toIntOrNull()
                     val a = abdomen.toIntOrNull()

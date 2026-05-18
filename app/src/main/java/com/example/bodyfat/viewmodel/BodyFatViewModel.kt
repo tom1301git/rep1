@@ -17,6 +17,7 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import java.time.LocalDate
 import java.time.Period
+import java.util.Locale
 import kotlin.math.pow
 
 data class ImportResult(val imported: Int, val skipped: Int)
@@ -36,13 +37,30 @@ class BodyFatViewModel(application: Application) : AndroidViewModel(application)
 
     fun saveProfile(birthDate: LocalDate) {
         viewModelScope.launch {
-            profileDao.save(UserProfile(birthDateEpochDay = birthDate.toEpochDay()))
+            val current = profileDao.getOnce()
+            profileDao.save(UserProfile(
+                birthDateEpochDay = birthDate.toEpochDay(),
+                targetLower = current?.targetLower ?: 8.0,
+                targetUpper = current?.targetUpper ?: 10.0
+            ))
+        }
+    }
+
+    fun saveTargetBand(lower: Double, upper: Double) {
+        viewModelScope.launch {
+            val current = profileDao.getOnce() ?: return@launch
+            profileDao.save(current.copy(targetLower = lower, targetUpper = upper))
         }
     }
 
     /** Changes birthdate, deletes all direct entries, recalculates all skinfold entries. */
     suspend fun updateProfileAndRecalculate(newBirthDate: LocalDate) {
-        val newProfile = UserProfile(birthDateEpochDay = newBirthDate.toEpochDay())
+        val current = profileDao.getOnce()
+        val newProfile = UserProfile(
+            birthDateEpochDay = newBirthDate.toEpochDay(),
+            targetLower = current?.targetLower ?: 8.0,
+            targetUpper = current?.targetUpper ?: 10.0
+        )
         profileDao.save(newProfile)
         val all = measurementDao.getAllOnce()
         all.filter { it.chest == null }.forEach { measurementDao.delete(it) }
@@ -92,10 +110,10 @@ class BodyFatViewModel(application: Application) : AndroidViewModel(application)
         try {
             val measurements = measurementDao.getAllOnce()
             val csv = buildString {
-                appendLine("date,chest,abdomen,thigh,bodyFatPercent")
+                appendLine("date;chest;abdomen;thigh;bodyFatPercent")
                 measurements.forEach { m ->
                     val date = LocalDate.ofEpochDay(m.dateEpochDay)
-                    appendLine("$date,${m.chest ?: ""},${m.abdomen ?: ""},${m.thigh ?: ""},${"%.4f".format(m.bodyFatPercent)}")
+                    appendLine("$date;${m.chest ?: ""};${m.abdomen ?: ""};${m.thigh ?: ""};${String.format(Locale.US, "%.4f", m.bodyFatPercent)}")
                 }
             }
             val file = File(context.cacheDir, "koerperfett_export.csv")
@@ -116,15 +134,17 @@ class BodyFatViewModel(application: Application) : AndroidViewModel(application)
             if (rawContent == null) {
                 ImportResult(0, 0)
             } else {
+                // auto-detect separator for backward compatibility with old comma-separated files
+                val sep = if (rawContent.lines().firstOrNull { it.isNotBlank() }?.contains(";") == true) ";" else ","
                 val existingDates = measurementDao.getAllOnce().map { it.dateEpochDay }.toSet()
                 var imported = 0
                 var skipped = 0
 
                 for (line in rawContent.lines().drop(1).filter { it.isNotBlank() }) {
-                    val parts = line.split(",")
+                    val parts = line.split(sep)
                     if (parts.size < 5) continue
                     val date = runCatching { LocalDate.parse(parts[0].trim()) }.getOrNull() ?: continue
-                    val bodyFat = parts[4].trim().toDoubleOrNull() ?: continue
+                    val bodyFat = parts[4].trim().replace(",", ".").toDoubleOrNull() ?: continue
 
                     if (existingDates.contains(date.toEpochDay())) {
                         skipped++

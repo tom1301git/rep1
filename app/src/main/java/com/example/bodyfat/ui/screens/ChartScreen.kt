@@ -9,6 +9,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -27,10 +28,12 @@ fun ChartScreen(
     viewModel: BodyFatViewModel = viewModel()
 ) {
     val allMeasurements by viewModel.allMeasurements.collectAsState()
+    val profile by viewModel.userProfile.collectAsState()
     val labelFormatter = DateTimeFormatter.ofPattern("dd.MM.")
     val primaryColor = MaterialTheme.colorScheme.primary
     val gridColor = MaterialTheme.colorScheme.outlineVariant
     val onSurface = MaterialTheme.colorScheme.onSurface
+    val targetBandColor = Color(0xFF4CAF50).copy(alpha = 0.15f)
 
     Scaffold(
         topBar = {
@@ -59,9 +62,7 @@ fun ChartScreen(
                 )
             } else {
                 val fatValues = allMeasurements.map { it.bodyFatPercent }
-                val minFat = fatValues.min()
                 val maxFat = fatValues.max()
-                val fatRange = (maxFat - minFat).coerceAtLeast(1.0)
 
                 // Time range for proportional x-axis
                 val xMinDay = allMeasurements.first().dateEpochDay
@@ -76,12 +77,12 @@ fun ChartScreen(
                 ) {
                     val w = size.width
                     val h = size.height
-                    val padV = fatRange * 0.1
-                    val yMin = minFat - padV
-                    val yMax = maxFat + padV
+
+                    // Y-axis: always 0 at bottom, at least 15 at top
+                    val yMin = 0.0
+                    val yMax = maxOf(maxFat + 1.0, 15.0)
                     val yRange = yMax - yMin
 
-                    // x proportional to actual date, 1 pixel = dayRange / w days
                     fun xOf(epochDay: Long): Float = (epochDay - xMinDay).toFloat() / dayRange * w
                     fun yOf(v: Double): Float = (h * (1.0 - (v - yMin) / yRange)).toFloat()
 
@@ -93,6 +94,21 @@ fun ChartScreen(
                         color = onSurface.toArgb()
                         textSize = 28f
                         isAntiAlias = true
+                    }
+
+                    // Target band (drawn first, behind everything)
+                    profile?.let { p ->
+                        if (p.targetLower < p.targetUpper) {
+                            val bandTop = yOf(p.targetUpper.coerceAtMost(yMax))
+                            val bandBot = yOf(p.targetLower.coerceAtLeast(yMin))
+                            if (bandBot > bandTop) {
+                                drawRect(
+                                    color = targetBandColor,
+                                    topLeft = Offset(0f, bandTop),
+                                    size = Size(w, bandBot - bandTop)
+                                )
+                            }
+                        }
                     }
 
                     // Horizontal grid lines with y-axis labels

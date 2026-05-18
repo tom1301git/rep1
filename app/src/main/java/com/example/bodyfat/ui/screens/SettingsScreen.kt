@@ -4,12 +4,14 @@ import android.content.Intent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.bodyfat.viewmodel.BodyFatViewModel
@@ -37,6 +39,12 @@ fun SettingsScreen(
 
     var importResult by remember { mutableStateOf<ImportResult?>(null) }
     var exportError by remember { mutableStateOf(false) }
+
+    val targetLower = profile?.targetLower ?: 8.0
+    val targetUpper = profile?.targetUpper ?: 10.0
+    var targetLowerInput by remember(targetLower) { mutableStateOf(targetLower.toString()) }
+    var targetUpperInput by remember(targetUpper) { mutableStateOf(targetUpper.toString()) }
+    var targetBandError by remember { mutableStateOf<String?>(null) }
 
     val datePickerState = rememberDatePickerState(
         initialSelectedDateMillis = pendingBirthDate?.toEpochDay()?.times(86_400_000L)
@@ -166,6 +174,73 @@ fun SettingsScreen(
                         enabled = pendingBirthDate != null,
                         modifier = Modifier.fillMaxWidth()
                     ) { Text("Speichern") }
+                }
+            }
+
+            // ── Zielband ──────────────────────────────────────────────────
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Text("Zielband", style = MaterialTheme.typography.titleMedium)
+
+                    Text(
+                        "Zielbereich für den Körperfettanteil (%), der im Chart grün hervorgehoben wird.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedTextField(
+                            value = targetLowerInput,
+                            onValueChange = { v ->
+                                val f = v.filter { it.isDigit() || it == '.' || it == ',' }
+                                if (f.count { it == '.' || it == ',' } <= 1) targetLowerInput = f
+                            },
+                            label = { Text("Untergrenze (%)") },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                            modifier = Modifier.weight(1f),
+                            singleLine = true
+                        )
+                        OutlinedTextField(
+                            value = targetUpperInput,
+                            onValueChange = { v ->
+                                val f = v.filter { it.isDigit() || it == '.' || it == ',' }
+                                if (f.count { it == '.' || it == ',' } <= 1) targetUpperInput = f
+                            },
+                            label = { Text("Obergrenze (%)") },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                            modifier = Modifier.weight(1f),
+                            singleLine = true
+                        )
+                    }
+
+                    if (targetBandError != null) {
+                        Text(
+                            targetBandError!!,
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+
+                    Button(
+                        onClick = {
+                            targetBandError = null
+                            val lower = targetLowerInput.replace(",", ".").toDoubleOrNull()
+                            val upper = targetUpperInput.replace(",", ".").toDoubleOrNull()
+                            if (lower == null || upper == null || lower < 0 || upper > 100 || lower >= upper) {
+                                targetBandError = "Bitte gültige Werte eingeben (Untergrenze < Obergrenze, 0–100)."
+                                return@Button
+                            }
+                            viewModel.saveTargetBand(lower, upper)
+                        },
+                        enabled = profile != null,
+                        modifier = Modifier.fillMaxWidth()
+                    ) { Text("Zielband speichern") }
                 }
             }
 
