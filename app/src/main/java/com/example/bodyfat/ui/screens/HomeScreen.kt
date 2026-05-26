@@ -15,8 +15,11 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.bodyfat.data.Measurement
 import com.example.bodyfat.data.UserProfile
@@ -46,6 +49,19 @@ fun HomeScreen(
     // Entry form state
     var entryMode by remember { mutableStateOf(EntryMode.SKINFOLD) }
     var selectedDate by remember { mutableStateOf(LocalDate.now()) }
+
+    // Reset date to today whenever the screen comes back to the foreground
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                selectedDate = LocalDate.now()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
     var showDatePicker by remember { mutableStateOf(false) }
     var chest by remember { mutableStateOf("") }
     var abdomen by remember { mutableStateOf("") }
